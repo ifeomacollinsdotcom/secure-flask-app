@@ -1,0 +1,5 @@
+[app_server]
+app ansible_host=your-app-server-ip ansible_user=ubuntu
+
+[jenkins_agent]
+agent ansible_host=your-jenkins-agent-ip ansible_user=centos
