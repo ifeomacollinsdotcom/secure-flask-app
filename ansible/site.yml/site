@@ -1,0 +1,11 @@
+---
+- name: Deploy Flask App
+  hosts: app_server
+  vars:
+    domain_name: your-domain.com  # Replace with your actual domain
+    email_address: your-email@example.com  # Replace with your email
+    workspace: "{{ lookup('env', 'WORKSPACE') | default('/tmp/workspace', true) }}"
+  roles:
+    - nginx_certbot
+    - mongodb
+    - flask_app
