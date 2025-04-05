@@ -1,3 +1,4 @@
+# This is an inventory file
 [web_server]
 n1 ansible_host=172.31.44.87 ansible_user=ubuntu
 
