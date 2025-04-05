@@ -10,3 +10,9 @@ Restart=always
 
 [Install]
 WantedBy=multi-user.target
+
+Environment="PATH=/opt/flask-app/venv/bin:/usr/bin"
+EnvironmentFile=/opt/flask-app/.env  # If using environment variables
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=process
+TimeoutStopSec=5  # Graceful shutdown
