@@ -3,7 +3,7 @@
   hosts: app_server
   vars:
     domain_name: your-domain.com  # site.yml
-    email_address: your-email@example.com  # ifeomalcollins@gmail.com
+    email_address: # ifeomalcollins@gmail.com
     workspace: "{{ lookup('env', 'WORKSPACE') | default('/tmp/workspace', true) }}"
   roles:
     - nginx_certbot
