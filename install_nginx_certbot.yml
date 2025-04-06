@@ -1,0 +1,26 @@
+- name: Install Nginx and Certbot on Ubuntu App Server
+  hosts: ubuntu_app
+  become: yes
+
+  tasks:
+    - name: Update apt
+      apt:
+        update_cache: yes
+
+    - name: Install Nginx
+      apt:
+        name: nginx
+        state: present
+
+    - name: Allow 'Nginx Full' in UFW
+      ufw:
+        rule: allow
+        name: 'Nginx Full'
+
+    - name: Install Certbot and python3-certbot-nginx
+      apt:
+        name:
+          - certbot
+          - python3-certbot-nginx
+        state: present
+
