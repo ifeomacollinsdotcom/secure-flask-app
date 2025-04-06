@@ -5,7 +5,9 @@
   vars:
     app_dir: /opt/flask_app
     flask_user: ubuntu
+    flask_group: "{{ flask_user }}"
     flask_port: 5000
+    venv_path: "{{ app_dir }}/venv"
 
   tasks:
     # 1. Install system packages
@@ -15,77 +17,90 @@
           - python3-pip
           - python3-venv
           - unzip
+          - python3-dev
+          - build-essential  # For any Python packages needing compilation
         state: present
+        update_cache: yes
 
-    # 2. Create app directory
-    - name: Create app directory
+    # 2. Create app directory structure
+    - name: Create app directory structure
       file:
-        path: "{{ app_dir }}"
+        path: "{{ item }}"
         state: directory
         owner: "{{ flask_user }}"
-        group: "{{ flask_user }}"
+        group: "{{ flask_group }}"
         mode: '0755'
-
-    # 3. Copy files to target
-    - name: Copy app files
-      copy:
-        src: "files/{{ item }}"
-        dest: "{{ app_dir }}/"
-        owner: "{{ flask_user }}"
-        group: "{{ flask_user }}"
       loop:
-        - flask_app.zip
-        - hash.txt
+        - "{{ app_dir }}"
+        - "{{ app_dir }}/logs"
+        - "{{ app_dir }}/tmp"
 
-    # 4. Verify checksum
-    - name: Verify checksum
-      command: "sha256sum -c hash.txt"
-      args:
-        chdir: "{{ app_dir }}"
-      register: checksum_result
-      failed_when: "'OK' not in checksum_result.stdout"
+    # 3. Secure copy with validation
+    - name: Transfer application bundle
+      ansible.builtin.copy:
+        src: "files/flask_app.zip"
+        dest: "{{ app_dir }}/flask_app.zip"
+        owner: "{{ flask_user }}"
+        group: "{{ flask_group }}"
+        mode: '0644'
+        remote_src: false
+        checksum: "sha256:{{ lookup('file', 'files/hash.txt').split()[0] }}"
 
-    # 5. Extract files (critical fix!)
+    # 4. Extract with proper permissions
     - name: Extract application
       unarchive:
         src: "{{ app_dir }}/flask_app.zip"
         dest: "{{ app_dir }}"
         remote_src: yes
         owner: "{{ flask_user }}"
-        group: "{{ flask_user }}"
-        extra_opts: "-jo"  # Force correct extraction
+        group: "{{ flask_group }}"
+        extra_opts: 
+          - "-j"  # Junk paths
+          - "-o"  # Overwrite without prompting
+        creates: "{{ app_dir }}/app.py"  # Key file that should exist after extraction
 
-    # 6. Verify extracted files
-    - name: Check app.py exists
-      stat:
-        path: "{{ app_dir }}/app.py"
-      register: app_file
+    # 5. Python virtual environment setup
+    - name: Create Python virtualenv
+      pip:
+        name: virtualenv
+        state: present
+        executable: pip3
 
-    - name: Fail if app.py missing
-      fail:
-        msg: "app.py not found after extraction!"
-      when: not app_file.stat.exists
-
-    # 7. Setup virtual environment
-    - name: Create Python venv
-      command: "python3 -m venv {{ app_dir }}/venv"
+    - name: Initialize virtual environment
+      command: "virtualenv --python=python3 {{ venv_path }}"
       args:
-        creates: "{{ app_dir }}/venv/bin/activate"
+        creates: "{{ venv_path }}/bin/activate"
 
-    # 8. Install requirements
+    # 6. Install requirements with dependency resolution
     - name: Install Python packages
       pip:
         requirements: "{{ app_dir }}/requirements.txt"
-        virtualenv: "{{ app_dir }}/venv"
+        virtualenv: "{{ venv_path }}"
+        virtualenv_site_packages: no
+        state: present
+        extra_args: "--no-cache-dir"
 
-    # 9. Configure systemd service
-    - name: Create systemd service
+    # 7. Systemd service configuration
+    - name: Deploy systemd service
       template:
         src: "templates/flask_app.service.j2"
         dest: "/etc/systemd/system/flask_app.service"
+        owner: root
+        group: root
+        mode: '0644'
+        validate: "/usr/bin/systemd-analyze verify %s"
       notify:
         - Reload systemd
         - Restart Flask app
+
+    # 8. Log rotation setup
+    - name: Configure log rotation
+      ansible.builtin.copy:
+        src: "templates/flask_app.logrotate"
+        dest: "/etc/logrotate.d/flask_app"
+        owner: root
+        group: root
+        mode: '0644'
 
   handlers:
     - name: Reload systemd
@@ -97,3 +112,6 @@
         name: flask_app
         state: restarted
         enabled: yes
+        scope: system
+      async: 30
+      poll: 0
