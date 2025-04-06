@@ -1,4 +1,11 @@
-zip -r flask_app.zip app.py requirements.txt
-sha256sum flask_app.zip > hash.txt
+- name: Copy app files
+  copy:
+    src: "{{ playbook_dir }}/files/{{ item }}"
+    dest: "{{ app_dir }}/"
+    owner: "{{ flask_user }}"
+    group: "{{ flask_user }}"
+  loop:
+    - flask_app.zip
+    - hash.txt
 
 
