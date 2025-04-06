@@ -1,0 +1,49 @@
+---
+- name: Transfer & Deploy Flask App to n1
+  hosts: n1  # Targets 172.31.10.61
+  become: yes
+  vars:
+    app_dir: /home/ubuntu/flask_app  # Deployment directory
+    src_dir: /home/ec2-user/secure-flask-app  # Source files on Ansible master
+
+  tasks:
+    # 1. Create directory with proper permissions
+    - name: Ensure app directory exists
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+
+    # 2. Sync files (exclude virtualenv)
+    - name: Transfer Flask app files
+      synchronize:
+        src: "{{ src_dir }}/"
+        dest: "{{ app_dir }}/"
+        rsync_opts:
+          - "--exclude=venv"
+          - "--exclude=__pycache__"
+          - "--exclude=.git"
+        delete: yes  # Mirror source exactly
+      delegate_to: localhost  # Runs from Ansible master
+
+    # 3. Install Python/venv
+    - name: Install Python dependencies
+      apt:
+        name: ["python3", "python3-pip", "python3-venv"]
+        state: present
+        update_cache: yes
+
+    # 4. Create virtual environment
+    - name: Set up Python virtualenv
+      command: "python3 -m venv {{ app_dir }}/venv"
+      args:
+        creates: "{{ app_dir }}/venv/bin/activate"  # Idempotent check
+
+    # 5. Install requirements
+    - name: Install Python packages
+      pip:
+        requirements: "{{ app_dir }}/requirements.txt"
+        virtualenv: "{{ app_dir }}/venv"
+        virtualenv_command: python3 -m venv
