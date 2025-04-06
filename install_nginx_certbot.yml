@@ -1,24 +1,70 @@
-- name: Install Nginx and Certbot on Ubuntu App Server
-  hosts: 172.31.44.87  # Direct IP specification (ensure this matches your server)
-  become: yes  # Run tasks with sudo privileges
+---
+- name: Configure Nginx with Certbot on Ubuntu
+  hosts: web_server  # Targets your n1 host specifically
+  become: yes
+  vars:
+    certbot_email: "your_email@example.com"  # CHANGE THIS
+    domains:
+      - "yourdomain.com"  # CHANGE THIS
+      - "www.yourdomain.com"
 
   tasks:
     - name: Update apt package index
       apt:
         update_cache: yes
-        cache_valid_time: 3600  # Only update if older than 1 hour
+        cache_valid_time: 3600
 
     - name: Install Nginx
       apt:
         name: nginx
-        state: latest  # Better than 'present' to ensure security updates
-        install_recommends: no  # Skip optional packages
+        state: latest
+        install_recommends: no
+      notify:
+        - Enable Nginx service
 
-    - name: Ensure Nginx is enabled and running
+    - name: Configure UFW for Nginx
+      ufw:
+        rule: allow
+        name: 'Nginx Full'
+      when: "'ufw' in ansible_facts.packages"
+
+    - name: Install Certbot components
+      apt:
+        name:
+          - certbot
+          - python3-certbot-nginx
+        state: latest
+      notify:
+        - Verify Certbot installation
+
+    - name: Run Certbot for SSL
+      command: |
+        certbot --nginx --non-interactive --agree-tos \
+        --email "{{ certbot_email }}" \
+        -d "{{ domains|join(',') }}" \
+        --redirect --hsts --uir
+      register: certbot_run
+      changed_when: "'Successfully' in certbot_run.stdout"
+      when: "'certbot' in ansible_facts.packages"
+      notify:
+        - Reload Nginx
+
+  handlers:
+    - name: Enable Nginx service
       service:
         name: nginx
         enabled: yes
         state: started
+
+    - name: Verify Certbot installation
+      command: certbot --version
+      register: certbot_version
+      changed_when: false
+
+    - name: Reload Nginx
+      service:
+        name: nginx
+        state: reloaded
 
     - name: Allow 'Nginx Full' in UFW
       ufw:
