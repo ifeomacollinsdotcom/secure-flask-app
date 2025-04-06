@@ -1,6 +1,6 @@
 ---
 - name: Configure Nginx with Certbot on Ubuntu
-  hosts: n1  
+  hosts: n1
   become: yes
   vars:
     certbot_email: "ifeomalcollins@gmail.com"  
@@ -9,6 +9,10 @@
       - "www.yourdomain.com"
 
   tasks:
+    - name: Gather package facts
+      package_facts:
+        manager: auto
+
     - name: Update apt package index
       apt:
         update_cache: yes
@@ -20,6 +24,18 @@
         state: latest
         install_recommends: no
       notify: Enable and start Nginx service
+
+    - name: Install UFW if needed
+      apt:
+        name: ufw
+        state: present
+      when: "'ufw' not in ansible_facts.packages"
+
+    - name: Configure UFW for Nginx
+      ufw:
+        rule: allow
+        name: 'Nginx Full'
+      when: "'ufw' in ansible_facts.packages"
 
     - name: Install Certbot components
       apt:
