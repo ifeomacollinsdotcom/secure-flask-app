@@ -1,11 +1,20 @@
-- name: Deploy Flask App using existing zip
+---
+- name: Deploy Flask App to n1
   hosts: n1
   become: yes
   vars:
     app_dir: /opt/flask_app
     flask_user: ubuntu
+    flask_port: 5000
 
   tasks:
+    - name: Install dependencies
+      apt:
+        name:
+          - python3-pip
+          - python3-venv
+        state: present
+
     - name: Create app directory
       file:
         path: "{{ app_dir }}"
@@ -14,15 +23,24 @@
         group: "{{ flask_user }}"
         mode: '0755'
 
-    - name: Copy zip from /tmp
+    - name: Copy app files
       copy:
-        src: /tmp/flask_app.zip
-        dest: "{{ app_dir }}/flask_app.zip"
-        remote_src: yes 
+        src: "{{ item }}"
+        dest: "{{ app_dir }}/"
         owner: "{{ flask_user }}"
         group: "{{ flask_user }}"
+      loop:
+        - flask_app.zip
+        - hash.txt
 
-    - name: Unzip application
+    - name: Verify checksum
+      command: "sha256sum -c hash.txt"
+      args:
+        chdir: "{{ app_dir }}"
+      register: checksum_result
+      failed_when: "'OK' not in checksum_result.stdout"
+
+    - name: Unzip app
       unarchive:
         src: "{{ app_dir }}/flask_app.zip"
         dest: "{{ app_dir }}"
@@ -31,6 +49,21 @@
         group: "{{ flask_user }}"
         extra_opts: "--strip-components=1"
 
-    - name: Install Python requirements
+    - name: Setup virtual environment
+      command: "python3 -m venv {{ app_dir }}/venv"
+      args:
+        creates: "{{ app_dir }}/venv/bin/activate"
+
+    - name: Install requirements
       pip:
         requirements: "{{ app_dir }}/requirements.txt"
+        virtualenv: "{{ app_dir }}/venv"
+
+    - name: Start application
+      command: |
+        {{ app_dir }}/venv/bin/gunicorn \
+        -b 0.0.0.0:{{ flask_port }} \
+        --chdir {{ app_dir }} \
+        app:app
+      async: 60
+      poll: 0
