@@ -1,9 +1,9 @@
 ---
 - name: Configure Nginx with Certbot on Ubuntu
-  hosts: web_server  # Targets your n1 host specifically
+  hosts: web_server  
   become: yes
   vars:
-    certbot_email: "your_email@example.com"  # CHANGE THIS
+    certbot_email: "ifeomalcollins@gmail.com"  
     domains:
       - "yourdomain.com"  # CHANGE THIS
       - "www.yourdomain.com"
