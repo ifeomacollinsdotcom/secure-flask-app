@@ -1,13 +1,16 @@
 [Unit]
-Description=Flask App on n1
+Description=Flask App Service
 After=network.target
 
 [Service]
 User={{ flask_user }}
 Group={{ flask_user }}
 WorkingDirectory={{ app_dir }}
-Environment="PATH={{ venv_path }}/bin"
-ExecStart={{ venv_path }}/bin/gunicorn -b 0.0.0.0:{{ flask_port }} app:app
+Environment="PATH={{ app_dir }}/venv/bin"
+ExecStart={{ app_dir }}/venv/bin/gunicorn \
+          -b 0.0.0.0:{{ flask_port }} \
+          --chdir {{ app_dir }} \
+          app:app
 Restart=always
 
 [Install]

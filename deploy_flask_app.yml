@@ -8,13 +8,16 @@
     flask_port: 5000
 
   tasks:
+    # 1. Install system packages
     - name: Install dependencies
       apt:
         name:
           - python3-pip
           - python3-venv
+          - unzip
         state: present
 
+    # 2. Create app directory
     - name: Create app directory
       file:
         path: "{{ app_dir }}"
@@ -23,9 +26,10 @@
         group: "{{ flask_user }}"
         mode: '0755'
 
+    # 3. Copy files to target
     - name: Copy app files
       copy:
-        src: "{{ item }}"
+        src: "files/{{ item }}"
         dest: "{{ app_dir }}/"
         owner: "{{ flask_user }}"
         group: "{{ flask_user }}"
@@ -33,6 +37,7 @@
         - flask_app.zip
         - hash.txt
 
+    # 4. Verify checksum
     - name: Verify checksum
       command: "sha256sum -c hash.txt"
       args:
@@ -40,30 +45,55 @@
       register: checksum_result
       failed_when: "'OK' not in checksum_result.stdout"
 
-    - name: Unzip app
+    # 5. Extract files (critical fix!)
+    - name: Extract application
       unarchive:
         src: "{{ app_dir }}/flask_app.zip"
         dest: "{{ app_dir }}"
         remote_src: yes
         owner: "{{ flask_user }}"
         group: "{{ flask_user }}"
-        extra_opts: "--strip-components=1"
+        extra_opts: "-jo"  # Force correct extraction
 
-    - name: Setup virtual environment
+    # 6. Verify extracted files
+    - name: Check app.py exists
+      stat:
+        path: "{{ app_dir }}/app.py"
+      register: app_file
+
+    - name: Fail if app.py missing
+      fail:
+        msg: "app.py not found after extraction!"
+      when: not app_file.stat.exists
+
+    # 7. Setup virtual environment
+    - name: Create Python venv
       command: "python3 -m venv {{ app_dir }}/venv"
       args:
         creates: "{{ app_dir }}/venv/bin/activate"
 
-    - name: Install requirements
+    # 8. Install requirements
+    - name: Install Python packages
       pip:
         requirements: "{{ app_dir }}/requirements.txt"
         virtualenv: "{{ app_dir }}/venv"
 
-    - name: Start application
-      command: |
-        {{ app_dir }}/venv/bin/gunicorn \
-        -b 0.0.0.0:{{ flask_port }} \
-        --chdir {{ app_dir }} \
-        app:app
-      async: 60
-      poll: 0
+    # 9. Configure systemd service
+    - name: Create systemd service
+      template:
+        src: "templates/flask_app.service.j2"
+        dest: "/etc/systemd/system/flask_app.service"
+      notify:
+        - Reload systemd
+        - Restart Flask app
+
+  handlers:
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: Restart Flask app
+      systemd:
+        name: flask_app
+        state: restarted
+        enabled: yes
