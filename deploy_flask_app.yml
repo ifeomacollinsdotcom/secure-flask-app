@@ -1,0 +1,86 @@
+---
+- name: Deploy Flask App to n1
+  hosts: n1   
+  become: yes
+  vars:
+    app_dir: /opt/flask_app
+    flask_user: ubuntu  
+    flask_port: 5000
+    venv_path: "{{ app_dir }}/venv"
+
+  tasks:
+    - name: Install system packages
+      apt:
+        name:
+          - python3-pip
+          - python3-venv
+          - unzip
+        state: present
+        update_cache: yes
+
+    - name: Create app directory
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: "{{ flask_user }}"
+        group: "{{ flask_user }}"
+        mode: '0755'
+
+    - name: Copy app files
+      copy:
+        src: "{{ item }}"
+        dest: "{{ app_dir }}/"
+        owner: "{{ flask_user }}"
+        group: "{{ flask_user }}"
+      loop:
+        - flask_app.zip
+        - hash.txt
+
+    - name: Verify checksum
+      command: "sha256sum -c hash.txt"
+      args:
+        chdir: "{{ app_dir }}"
+      register: checksum_result
+      failed_when: "'OK' not in checksum_result.stdout"
+
+    - name: Extract application
+      unarchive:
+        src: "{{ app_dir }}/flask_app.zip"
+        dest: "{{ app_dir }}"
+        remote_src: yes
+        owner: "{{ flask_user }}"
+        group: "{{ flask_user }}"
+
+    - name: Setup virtual environment
+      command: "python3 -m venv {{ venv_path }}"
+      args:
+        creates: "{{ venv_path }}/bin/activate"
+
+    - name: Install requirements
+      pip:
+        requirements: "{{ app_dir }}/requirements.txt"
+        virtualenv: "{{ venv_path }}"
+
+    - name: Install Gunicorn
+      pip:
+        name: gunicorn
+        virtualenv: "{{ venv_path }}"
+
+    - name: Configure systemd service
+      template:
+        src: templates/flask_app.service.j2
+        dest: /etc/systemd/system/flask_app.service
+      notify:
+        - Reload systemd
+        - Restart Flask app
+
+  handlers:
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: Restart Flask app
+      systemd:
+        name: flask_app
+        state: restarted
+        enabled: yes
