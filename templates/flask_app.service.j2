@@ -1,17 +1,20 @@
 [Unit]
-Description=Flask App Service
+Description=Flask Application
 After=network.target
 
 [Service]
 User={{ flask_user }}
-Group={{ flask_user }}
+Group={{ flask_group }}
 WorkingDirectory={{ app_dir }}
-Environment="PATH={{ app_dir }}/venv/bin"
-ExecStart={{ app_dir }}/venv/bin/gunicorn \
-          -b 0.0.0.0:{{ flask_port }} \
-          --chdir {{ app_dir }} \
+Environment="PATH={{ venv_path }}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart={{ venv_path }}/bin/gunicorn \
+          --workers 3 \
+          --bind 127.0.0.1:{{ flask_port }} \
+          --access-logfile {{ app_dir }}/logs/access.log \
+          --error-logfile {{ app_dir }}/logs/error.log \
           app:app
 Restart=always
+KillMode=process
 
 [Install]
 WantedBy=multi-user.target
