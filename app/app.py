@@ -32,5 +32,5 @@ def index():
         return render_template("error.html", error="Server error"), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=os.getenv("FLASK_DEBUG", "False") == "True")
+    app.run(host="0.0.0.0", port=27017, debug=os.getenv("FLASK_DEBUG", "False") == "True")
 
