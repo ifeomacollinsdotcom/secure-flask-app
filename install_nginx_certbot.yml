@@ -1,115 +1,44 @@
----
-- name: Install Nginx and Certbot
-  hosts: 172.31.44.87
-  become: yes
-  vars:
-    certbot_email: ifeomalcollins@gmail.com
-    domains:
-      - yourdomain.com
-      - www.yourdomain.com
+- name: Install Nginx and Certbot on Ubuntu App Server
+  hosts: 172.31.44.87  # Direct IP specification (ensure this matches your server)
+  become: yes  # Run tasks with sudo privileges
 
   tasks:
-    - name: Gather OS facts
-      setup:
-        filter: ansible_distribution*
-
-    - name: Update package cache (Debian/Ubuntu)
+    - name: Update apt package index
       apt:
         update_cache: yes
-        cache_valid_time: 86400  # 1 day
-      when: ansible_distribution in ['Debian', 'Ubuntu']
+        cache_valid_time: 3600  # Only update if older than 1 hour
 
-    - name: Update package cache (RHEL/CentOS)
-      yum:
-        update_cache: yes
-      when: ansible_distribution in ['CentOS', 'RedHat']
-
-    - name: Install Nginx (Debian/Ubuntu)
+    - name: Install Nginx
       apt:
         name: nginx
-        state: latest
-        install_recommends: no
-      when: ansible_distribution in ['Debian', 'Ubuntu']
-      notify:
-        - Enable Nginx
+        state: latest  # Better than 'present' to ensure security updates
+        install_recommends: no  # Skip optional packages
 
-    - name: Install Nginx (RHEL/CentOS)
-      yum:
-        name: nginx
-        state: latest
-      when: ansible_distribution in ['CentOS', 'RedHat']
-      notify:
-        - Enable Nginx
-
-    - name: Configure UFW (Ubuntu only)
-      block:
-        - name: Allow Nginx Full
-          ufw:
-            rule: allow
-            name: 'Nginx Full'
-        
-        - name: Enable UFW
-          ufw:
-            state: enabled
-            policy: deny
-      when: 
-        - ansible_distribution == 'Ubuntu'
-        - "'ufw' in ansible_facts.packages"
-
-    - name: Install Certbot (Debian/Ubuntu)
-      apt:
-        name:
-          - certbot
-          - python3-certbot-nginx
-        state: latest
-      when: ansible_distribution in ['Debian', 'Ubuntu']
-      notify:
-        - Verify Certbot
-
-    - name: Install Certbot (RHEL/CentOS)
-      yum:
-        name:
-          - certbot
-          - python3-certbot-nginx
-        state: latest
-      when: ansible_distribution in ['CentOS', 'RedHat']
-      notify:
-        - Verify Certbot
-
-    - name: Configure Certbot SSL
-      command: |
-        certbot --nginx \
-          --non-interactive \
-          --agree-tos \
-          --email "{{ certbot_email }}" \
-          -d "{{ domains|join(',') }}" \
-          --redirect \
-          --hsts \
-          --uir
-      when: 
-        - "'certbot' in ansible_facts.packages"
-        - ansible_distribution in ['Debian', 'Ubuntu', 'CentOS', 'RedHat']
-      register: certbot_run
-      changed_when: "'Successfully deployed' in certbot_run.stdout"
-      notify:
-        - Reload Nginx
-
-  handlers:
-    - name: Enable Nginx
+    - name: Ensure Nginx is enabled and running
       service:
         name: nginx
         enabled: yes
         state: started
 
-    - name: Verify Certbot
+    - name: Allow 'Nginx Full' in UFW
+      ufw:
+        rule: allow
+        name: 'Nginx Full'
+      when: "'ufw' in ansible_facts.packages"  # Only if UFW is installed
+
+    - name: Install Certbot components
+      apt:
+        name:
+          - certbot
+          - python3-certbot-nginx
+        state: latest
+        update_cache: yes  # Refresh package list before install
+      notify:
+        - Check Certbot installation
+
+  handlers:
+    - name: Check Certbot installation
       command: certbot --version
       register: certbot_version
       changed_when: false
-      failed_when: 
-        - certbot_version.rc != 0
-        - "'No such file' not in certbot_version.stderr"
-
-    - name: Reload Nginx
-      service:
-        name: nginx
-        state: reloaded
+      failed_when: certbot_version.rc != 0
