@@ -1,0 +1,4 @@
+zip -r flask_app.zip app.py requirements.txt
+sha256sum flask_app.zip > hash.txt
+
+
