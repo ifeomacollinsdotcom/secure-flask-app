@@ -5,7 +5,7 @@
   vars:
     certbot_email: "ifeomalcollins@gmail.com"  
     domains:
-      - "yourdomain.com"  # CHANGE THIS
+      - "yourdomain.com"  
       - "www.yourdomain.com"
 
   tasks:
@@ -19,14 +19,7 @@
         name: nginx
         state: latest
         install_recommends: no
-      notify:
-        - Enable Nginx service
-
-    - name: Configure UFW for Nginx
-      ufw:
-        rule: allow
-        name: 'Nginx Full'
-      when: "'ufw' in ansible_facts.packages"
+      notify: Enable and start Nginx service
 
     - name: Install Certbot components
       apt:
@@ -34,8 +27,7 @@
           - certbot
           - python3-certbot-nginx
         state: latest
-      notify:
-        - Verify Certbot installation
+      notify: Verify Certbot installation
 
     - name: Run Certbot for SSL
       command: |
@@ -46,11 +38,10 @@
       register: certbot_run
       changed_when: "'Successfully' in certbot_run.stdout"
       when: "'certbot' in ansible_facts.packages"
-      notify:
-        - Reload Nginx
+      notify: Reload Nginx
 
   handlers:
-    - name: Enable Nginx service
+    - name: Enable and start Nginx service
       service:
         name: nginx
         enabled: yes
@@ -65,26 +56,3 @@
       service:
         name: nginx
         state: reloaded
-
-    - name: Allow 'Nginx Full' in UFW
-      ufw:
-        rule: allow
-        name: 'Nginx Full'
-      when: "'ufw' in ansible_facts.packages"  # Only if UFW is installed
-
-    - name: Install Certbot components
-      apt:
-        name:
-          - certbot
-          - python3-certbot-nginx
-        state: latest
-        update_cache: yes  # Refresh package list before install
-      notify:
-        - Check Certbot installation
-
-  handlers:
-    - name: Check Certbot installation
-      command: certbot --version
-      register: certbot_version
-      changed_when: false
-      failed_when: certbot_version.rc != 0
