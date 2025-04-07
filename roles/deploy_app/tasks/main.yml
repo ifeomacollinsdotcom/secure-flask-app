@@ -1,0 +1,31 @@
+---
+- name: Install required packages
+  apt:
+    name:
+      - python3-pip
+      - python3-dev
+      - build-essential
+    state: present
+    update_cache: yes
+
+- name: Install Flask and other dependencies
+  pip:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - flask
+    - pymongo
+
+- name: Deploy Flask app
+  copy:
+    src: /path/to/your/app.py
+    dest: /home/ubuntu/secure-flask-app/app.py
+    owner: ubuntu
+    group: ubuntu
+    mode: '0644'
+
+- name: Start Flask app with gunicorn
+  shell: "gunicorn -b 0.0.0.0:5000 app:app"
+  args:
+    chdir: /home/ubuntu/secure-flask-app
+    creates: /home/ubuntu/secure-flask-app/gunicorn.pid
