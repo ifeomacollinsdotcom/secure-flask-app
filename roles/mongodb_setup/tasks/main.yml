@@ -19,15 +19,9 @@
     state: present
 
 - name: Create starter collection and documents
-  community.mongodb.mongodb_doc:
+  community.mongodb.mongodb_shell:
     login_user: devuser
     login_password: devpassword
+    login_database: admin
     db: devdb
-    collection: starter_data
-    state: present
-    data:
-      - name: "Example 1"
-        description: "First test record"
-      - name: "Example 2"
-        description: "Second test record"
-
+    eval: 'db.starter_data.insertMany([{"name": "Example 1", "description": "First test record"}, {"name": "Example 2", "description": "Second test record"}])'
