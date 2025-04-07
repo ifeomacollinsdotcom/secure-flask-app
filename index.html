@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure DevOps App</title>
+</head>
+<body>
+    <h1>Secure DevOps app deployed with artifacts!</h1>
+    <p>This application was built by Collins Ifeoma Lilicent</p>
+    <p>This app is connected to MongoDB and deployed using Flask.</p>
+    <h2>Starter Data:</h2>
+    <ul id="data-list"></ul>
+
+    <script>
+        fetch('/api/data')
+            .then(response => response.json())
+            .then(data => {
+                const list = document.getElementById('data-list');
+                data.forEach(item => {
+                    const li = document.createElement('li');
+                    li.textContent = item.name + ': ' + item.description;
+                    list.appendChild(li);
+                });
+            });
+    </script>
+</body>
+</html>
