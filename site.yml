@@ -1,0 +1,7 @@
+---
+- hosts: app
+  become: yes
+  roles:
+    - nginx_certbot
+    - mongodb_setup
+    - deploy_app
