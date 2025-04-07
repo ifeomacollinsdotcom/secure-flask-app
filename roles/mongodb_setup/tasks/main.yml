@@ -1,0 +1,32 @@
+---
+- name: Install MongoDB
+  apt:
+    name: mongodb
+    state: present
+    update_cache: yes
+
+- name: Ensure MongoDB is running
+  systemd:
+    name: mongodb
+    state: started
+    enabled: yes
+
+- name: Insert starter records into MongoDB
+  mongodb_user:
+    name: devuser
+    password: devpassword
+    database: devdb
+    state: present
+
+- name: Create starter collection and documents
+  mongodb_doc:
+    login_user: devuser
+    login_password: devpassword
+    db: devdb
+    collection: starter_data
+    state: present
+    data:
+      - name: "Example 1"
+        description: "First test record"
+      - name: "Example 2"
+        description: "Second test record"
