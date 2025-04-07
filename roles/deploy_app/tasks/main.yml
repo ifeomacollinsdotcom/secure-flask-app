@@ -29,3 +29,23 @@
   args:
     chdir: /home/ubuntu/secure-flask-app
     creates: /home/ubuntu/secure-flask-app/gunicorn.pid
+
+    - name: Copy requirements.txt to app server
+  copy:
+    src: requirements.txt
+    dest: /home/ubuntu/requirements.txt
+    owner: ubuntu
+    group: ubuntu
+    mode: '0644'
+
+- name: Create virtual environment if not present
+  command: python3 -m venv /home/ubuntu/venv
+  args:
+    creates: /home/ubuntu/venv
+
+- name: Install Python dependencies from requirements.txt
+  command: /home/ubuntu/venv/bin/pip install -r /home/ubuntu/requirements.txt
+  args:
+    chdir: /home/ubuntu
+    creates: /home/ubuntu/venv/lib/python3.8/site-packages/flask
+    # Adjust the Python version in the path as necessary
