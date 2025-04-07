@@ -19,7 +19,7 @@
     state: present
 
 - name: Create starter collection and documents
-  mongodb_doc:
+  community.mongodb.mongodb_doc:
     login_user: devuser
     login_password: devpassword
     db: devdb
@@ -30,3 +30,4 @@
         description: "First test record"
       - name: "Example 2"
         description: "Second test record"
+
