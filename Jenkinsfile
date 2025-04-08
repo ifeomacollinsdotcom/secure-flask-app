@@ -1,5 +1,5 @@
 pipeline {
-    agent any  // You can change to 'n1' or 'any' depending on your Jenkins configuration
+    agent n1  //
 
     environment {
         APP_NAME = "flask-app"
